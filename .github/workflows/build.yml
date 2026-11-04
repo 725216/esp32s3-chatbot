@@ -146,60 +146,60 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           ls -la build/ | head -20 || true
           cat > build/FLASH_README.md <<'FLASH_EOF'
-# 固件刷写与配置说明
+          # 固件刷写与配置说明
 
-## 重要：API Key 配置
+          ## 重要：API Key 配置
 
-**固件不包含火山方舟 API Key**，首次启动后需通过配网页输入：
+          **固件不包含火山方舟 API Key**，首次启动后需通过配网页输入：
 
-1. 刷写固件并上电
-2. 手机连接设备热点（如 `ESP-AP-XXXX`，无密码）
-3. 浏览器访问: `192.168.4.1`
-4. 在"豆包 Agent 配置"区域输入：
-   - **API Key**: 火山方舟控制台获取（UUID 格式，如 `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`）
-   - **Model**: 留空则默认 `1.2.6.1` (Seed-1.2.6.1)
-   - **Voice**: 留空则默认 `zh_female_vv_uranus_bigtts` (Vivi 2.0)
-5. 点击"保存 Agent 配置"
-6. 配置 WiFi 并连接
+          1. 刷写固件并上电
+          2. 手机连接设备热点（如 `ESP-AP-XXXX`，无密码）
+          3. 浏览器访问: `192.168.4.1`
+          4. 在"豆包 Agent 配置"区域输入：
+             - **API Key**: 火山方舟控制台获取（UUID 格式，如 `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`）
+             - **Model**: 留空则默认 `1.2.6.1` (Seed-1.2.6.1)
+             - **Voice**: 留空则默认 `zh_female_vv_uranus_bigtts` (Vivi 2.0)
+          5. 点击"保存 Agent 配置"
+          6. 配置 WiFi 并连接
 
-## 重新配网（保留 Key）
+          ## 重新配网（保留 Key）
 
-如需更换 WiFi 但保留已配置的 Agent Key：
-- **按住 BOOT 键 2 秒** → 设备重启进入配网模式
-- Key 已保存，无需重新输入
-- 只需重新配置 WiFi 即可
+          如需更换 WiFi 但保留已配置的 Agent Key：
+          - **按住 BOOT 键 2 秒** → 设备重启进入配网模式
+          - Key 已保存，无需重新输入
+          - 只需重新配置 WiFi 即可
 
-## 按键功能
+          ## 按键功能
 
-| 按键 | GPIO | 功能 |
-|------|------|------|
-| PTT | GPIO38 | 按住说话，松开停止 |
-| SWITCH | GPIO21 | 短按切换 AI Agent（小智 / 豆包） |
-| BOOT | GPIO0 | 按住 2 秒清除 WiFi 配置并重新配网（保留 Key） |
+          | 按键 | GPIO | 功能 |
+          |------|------|------|
+          | PTT | GPIO38 | 按住说话，松开停止 |
+          | SWITCH | GPIO21 | 短按切换 AI Agent（小智 / 豆包） |
+          | BOOT | GPIO0 | 按住 2 秒清除 WiFi 配置并重新配网（保留 Key） |
 
-## 分区偏移
+          ## 分区偏移
 
-| 文件 | 偏移地址 |
-|------|---------|
-| bootloader.bin | 0x0 |
-| partition-table.bin | 0x8000 |
-| esp32s3_chatbot.bin | 0x10000 |
+          | 文件 | 偏移地址 |
+          |------|---------|
+          | bootloader.bin | 0x0 |
+          | partition-table.bin | 0x8000 |
+          | esp32s3_chatbot.bin | 0x10000 |
 
-## 完整刷写（首次）
+          ## 完整刷写（首次）
 
-```bash
-esptool.py --port COM4 --baud 921600 write_flash \
-  0x0 bootloader.bin \
-  0x8000 partition-table.bin \
-  0x10000 esp32s3_chatbot.bin
-```
+          ```bash
+          esptool.py --port COM4 --baud 921600 write_flash \
+            0x0 bootloader.bin \
+            0x8000 partition-table.bin \
+            0x10000 esp32s3_chatbot.bin
+          ```
 
-## 仅更新 App（保留 NVS 配置）
+          ## 仅更新 App（保留 NVS 配置）
 
-```bash
-esptool.py --port COM4 --baud 921600 write_flash 0x10000 esp32s3_chatbot.bin
-```
-FLASH_EOF
+          ```bash
+          esptool.py --port COM4 --baud 921600 write_flash 0x10000 esp32s3_chatbot.bin
+          ```
+          FLASH_EOF
 
       - name: Upload flash instructions
         uses: actions/upload-artifact@v4
