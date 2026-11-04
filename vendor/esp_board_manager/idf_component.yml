@@ -1,0 +1,15 @@
+dependencies:
+  espressif/esp_codec_dev:
+    require: public
+    version: ~1.5
+description: Board manager for Espressif
+documentation: https://github.com/espressif/esp-board-manager/blob/main/esp_board_manager/README.md
+issues: https://github.com/espressif/esp-board-manager/issues
+repository: git://github.com/espressif/esp-board-manager.git
+repository_info:
+  commit_sha: cbee842b9eb75cf86b731f1933f71adee9e41d7f
+  path: ./esp_board_manager
+tags:
+- board_manager
+url: https://github.com/espressif/esp-board-manager
+version: 0.5.15

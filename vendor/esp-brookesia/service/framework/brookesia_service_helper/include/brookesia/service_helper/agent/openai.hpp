@@ -1,0 +1,92 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#pragma once
+
+#include "brookesia/lib_utils/describe_helpers.hpp"
+#include "brookesia/service_manager/helper/base.hpp"
+#include "manager.hpp"
+
+namespace esp_brookesia::service::helper {
+
+/**
+ * @brief Helper schema definitions for the OpenAI agent service.
+ */
+class Openai: public service::helper::Base<Openai> {
+public:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////// The following are the service specific types and enumerations ///////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * @brief Runtime configuration for the OpenAI agent backend.
+     */
+    struct Info {
+        std::string model;   ///< Model identifier used for requests.
+        std::string api_key; ///< API key used for authentication.
+        std::string voice;   ///< Voice identifier used for requests. Default is "alloy".
+        std::string app_id;  ///< Volcano Ark APP ID (Doubao Realtime auth).
+    };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the types required by the Base class /////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    enum class FunctionId : uint8_t {
+        Max,
+    };
+
+    enum class EventId : uint8_t {
+        Max,
+    };
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the event schemas /////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+public:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the functions required by the Base class /////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * @brief Name of the OpenAI agent service.
+     *
+     * @return std::string_view Stable service name.
+     */
+    static constexpr std::string_view get_name()
+    {
+        return "OpenAI";
+    }
+
+    /**
+     * @brief Get the function schemas exported by the OpenAI agent.
+     *
+     * @return std::span<const service::FunctionSchema> Static schema span.
+     */
+    static std::span<const service::FunctionSchema> get_function_schemas()
+    {
+        return {};
+    }
+
+    /**
+     * @brief Get the event schemas exported by the OpenAI agent.
+     *
+     * @return std::span<const service::EventSchema> Static schema span.
+     */
+    static std::span<const service::EventSchema> get_event_schemas()
+    {
+        return {};
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the describe macros //////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+BROOKESIA_DESCRIBE_STRUCT(
+    Openai::Info, (), (model, api_key, voice, app_id)
+);
+BROOKESIA_DESCRIBE_ENUM(Openai::FunctionId, Max);
+BROOKESIA_DESCRIBE_ENUM(Openai::EventId, Max);
+
+} // namespace esp_brookesia::service::helper

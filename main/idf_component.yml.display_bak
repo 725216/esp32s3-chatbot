@@ -1,0 +1,127 @@
+## ESP32-S3 无屏双 Agent（小智 + 豆包/OpenAI）工程依赖
+## 所有 brookesia 内部组件 override_path 指向仓库内 vendor/esp-brookesia（相对路径，本地/云编译通用）
+## 第三方组件带本地补丁/yml 放宽的版本 vendored 在 vendor/，registry 组件（esp_board_manager 等）由组件管理器在线拉取
+dependencies:
+  # HAL
+  espressif/brookesia_hal_interface:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/hal/brookesia_hal_interface
+  espressif/brookesia_hal_adaptor:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/hal/brookesia_hal_adaptor
+  espressif/brookesia_hal_boards:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/hal/brookesia_hal_boards
+
+  # Services
+  espressif/brookesia_service_device:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/system/brookesia_service_device
+  espressif/brookesia_service_audio:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/media/brookesia_service_audio
+  espressif/brookesia_service_wifi:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/network/brookesia_service_wifi
+  espressif/brookesia_service_storage:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/system/brookesia_service_storage
+  espressif/brookesia_service_sntp:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/network/brookesia_service_sntp
+  espressif/brookesia_service_helper:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/framework/brookesia_service_helper
+  espressif/brookesia_service_manager:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/framework/brookesia_service_manager
+
+  # Agents（小智 + 豆包/OpenAI）
+  espressif/brookesia_agent_manager:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/agent/brookesia_agent_manager
+  espressif/brookesia_agent_xiaozhi:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/agent/brookesia_agent_xiaozhi
+  espressif/brookesia_agent_openai:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/service/agent/brookesia_agent_openai
+  espressif/brookesia_mcp_utils:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/utils/brookesia_mcp_utils
+  espressif/brookesia_lib_utils:
+    version: "0.8.*"
+    override_path: ../vendor/esp-brookesia/utils/brookesia_lib_utils
+
+  # 第三方（vendored：绕过 registry 的 idf>=5.5 / >=5.4 约束 + 含本地链接补丁）
+  espressif/esp-boost:
+    version: "0.6.*"
+    override_path: ../vendor/esp-boost
+  espressif/esp_xiaozhi:
+    version: "0.1.2"
+    override_path: ../vendor/esp_xiaozhi
+  espressif/mcp-c-sdk:
+    version: "2.0.1"
+    override_path: ../vendor/mcp-c-sdk
+  espressif/cjson:
+    version: "1.7.19"
+    override_path: ../vendor/cjson
+  espressif/esp_websocket_client:
+    version: "1.6.1"
+    override_path: ../vendor/esp_websocket_client
+  espressif/esp_codec_dev:
+    version: "~1.5"
+    override_path: ../vendor/esp_codec_dev
+  # LOCAL FIX (2026-11-04): esp_board_manager 0.5.15 registry 版 manifest 含
+  # $CONFIG{...} 条件依赖（新版组件管理器要求 CONFIG 环境变量，云编译报错）。
+  # vendored 到 vendor/esp_board_manager（manifest 已裁剪可选特性依赖，仅保留 esp_codec_dev）。
+  espressif/esp_board_manager:
+    version: "0.5.15"
+    override_path: ../vendor/esp_board_manager
+  # media_lib_sal：GMF 编解码适配层（av_processor/audio playback 依赖）。
+  # 组件管理器求解偶发漏掉 registry 依赖，改用 override_path 强制纳入构建。
+  espressif/media_lib_sal:
+    version: "0.9.3"
+    override_path: ../vendor/media_lib_sal
+  # LOCAL FIX (2026-10-28): av_processor 0.6.6 无条件引用 esp-sr AFE/WakeNet API，
+  # 需要 gmf_ai_audio + esp-sr。云编译时改由 registry 在线下载（版本锁定，与本地手工下载内容一致）
+  jason-mao/av_processor:
+    version: "0.6.*"
+    override_path: ../vendor/av_processor
+  espressif/gmf_ai_audio:
+    version: "0.8.3"
+  espressif/esp-sr:
+    version: "2.4.4"
+  espressif/dl_fft:
+    version: "0.8.0"
+  espressif/esp-dsp:
+    version: "1.8.0"
+  # esp_peer：必须用 vendored 副本（含 esp_log_shim.c 链接补丁，registry 版无此补丁会链接失败）
+  espressif/esp_peer:
+    version: "1.5.7"
+    override_path: ../vendor/esp_peer
+
+  # ============================================================
+  # 屏幕功能依赖（默认禁用，配合 CONFIG_APP_ENABLE_DISPLAY 使用）
+  # 接上屏幕后：
+  #   1. menuconfig 打开 Display -> APP_ENABLE_DISPLAY（源码已条件编入）
+  #   2. 取消注释下面三组依赖并删除注释行，重新 idf.py 构建
+  #   3. menuconfig 使能 BROOKESIA_HAL_ADAPTOR_ENABLE_DISPLAY_DEVICE 与 LCD 面板驱动
+  #   4. storage 分区已预留表情资源（partitions.csv storage@0x810000）
+  # ------------------------------------------------------------
+  # espressif/brookesia_service_display:
+  #   version: "0.8.*"
+  #   override_path: ../vendor/esp-brookesia/service/media/brookesia_service_display
+  # espressif/brookesia_service_video:
+  #   version: "0.8.*"
+  #   override_path: ../vendor/esp-brookesia/service/media/brookesia_service_video
+  # espressif/brookesia_expression_emote:
+  #   version: "0.8.*"
+  #   override_path: ../vendor/esp-brookesia/service/expression/brookesia_expression_emote
+  # # display.cpp 依赖 LVGL 适配层与 brookesia GUI（vendor 副本未含 gui，从 registry 拉取）
+  # # 注意：esp_lvgl_adapter 最新版要求 ESP-IDF >= 5.5，本项目 IDF 5.3.1 需选旧版本
+  # #       或将工程升级到 5.5；brookesia_gui 若 registry 无此名，从 esp-brookesia
+  # #       仓库 gui/ 目录 vendor 一份并用 override_path 引用。
+  # lvgl/lvgl: "^9"
+  # espressif/esp_lvgl_adapter: "<1"
+  # espressif/brookesia_gui: "0.8.*"

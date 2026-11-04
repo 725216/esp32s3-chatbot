@@ -1,0 +1,1145 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#pragma once
+
+#include <array>
+#include <cstdint>
+#include <expected>
+#include <initializer_list>
+#include <map>
+#include <memory>
+#include <span>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <vector>
+#include "boost/format.hpp"
+#include "boost/json.hpp"
+#include "brookesia/hal_interface/interfaces/storage/file_system.hpp"
+#include "brookesia/hal_interface/interfaces/storage/key_value.hpp"
+#include "brookesia/lib_utils/describe_helpers.hpp"
+#include "brookesia/service_manager/detail/static_schema.hpp"
+#include "brookesia/service_manager/helper/base.hpp"
+
+namespace esp_brookesia::service::helper {
+
+struct StorageFileSystemInfo {
+    hal::storage::FileSystemIface::FileSystemType fs_type = hal::storage::FileSystemIface::FileSystemType::LittleFS;
+    hal::storage::FileSystemIface::MediumType medium_type = hal::storage::FileSystemIface::MediumType::Flash;
+    std::string mount_point;
+    bool supports_directories = false;
+};
+
+/**
+ * @brief Helper schema definitions for the Storage service.
+ */
+class Storage : public Base<Storage> {
+public:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////// The following are the service specific types and enumerations ///////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * They are used as parameter and return types for functions and events.
+     * Users can access or modify these types via serialization and deserialization.
+     */
+    using ValueType = hal::storage::KeyValueIface::ValueType;
+    using Value = hal::storage::KeyValueIface::Value;
+    using KeyValueMap = hal::storage::KeyValueIface::KeyValueMap;
+    using EntryInfo = hal::storage::KeyValueIface::EntryInfo;
+    using FileSystemInfo = StorageFileSystemInfo;
+    using FileSystemCapacity = hal::storage::FileSystemIface::Capacity;
+
+    enum class FileType {
+        Missing,
+        File,
+        Directory,
+        Other,
+        Max,
+    };
+
+    struct FileInfo {
+        FileType type = FileType::Missing;
+        uint64_t size = 0;
+        uint64_t mtime_ms = 0;
+        bool exists = false;
+    };
+
+    struct FileEntry {
+        std::string name;
+        FileInfo info;
+    };
+
+    struct KvNameResult {
+        std::string name;
+        std::string original_name;
+        bool hashed = false;
+        std::string warning;
+    };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the types required by the Base class /////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * @brief Storage service function identifiers.
+     */
+    enum class FunctionId {
+        KVList,
+        KVSet,
+        KVGet,
+        KVErase,
+        GetFileSystems,
+        GetFileSystemCapacity,
+        FSStat,
+        FSList,
+        FSMkdir,
+        FSReadText,
+        FSRead,
+        FSWriteText,
+        FSWrite,
+        FSRemove,
+        FSRename,
+        FSCopyTree,
+        MakeKVKey,
+        MakeKVNamespace,
+        Max,
+    };
+
+    /**
+     * @brief Storage service event identifiers.
+     */
+    enum class EventId {
+        Max,
+    };
+
+    /**
+     * @brief Parameter keys for `FunctionId::KVList`.
+     */
+
+    /**
+     * @brief Parameter keys for `FunctionId::KVSet`.
+     */
+
+    /**
+     * @brief Parameter keys for `FunctionId::KVGet`.
+     */
+
+    /**
+     * @brief Parameter keys for `FunctionId::KVErase`.
+     */
+
+
+
+
+
+
+
+
+
+    // Storage has no events, so no event parameter types are defined
+
+private:
+    static constexpr std::string_view DEFAULT_NAMESPACE = "storage";
+    static constexpr uint32_t KV_DEFAULT_TIMEOUT_MS = 1000;
+    static constexpr uint32_t FS_DEFAULT_TIMEOUT_MS = 2000;
+    static constexpr uint32_t FS_READ_TEXT_DEFAULT_TIMEOUT_MS = 10000;
+    static constexpr uint32_t FS_READ_DEFAULT_TIMEOUT_MS = 10000;
+    static constexpr uint32_t FS_WRITE_TEXT_DEFAULT_TIMEOUT_MS = 10000;
+    static constexpr uint32_t FS_WRITE_DEFAULT_TIMEOUT_MS = 10000;
+    static constexpr uint32_t FS_REMOVE_DEFAULT_TIMEOUT_MS = 10000;
+    static constexpr uint32_t FS_RENAME_DEFAULT_TIMEOUT_MS = 10000;
+    static constexpr uint32_t FS_COPY_TREE_DEFAULT_TIMEOUT_MS = 10000;
+
+#if !defined(ESP_PLATFORM) || CONFIG_SPIRAM_XIP_FROM_PSRAM
+    static constexpr bool FS_REQUIRE_SCHEDULER = false;
+#else
+    static constexpr bool FS_REQUIRE_SCHEDULER = true;
+#endif
+
+    using DefaultValueKind = detail::static_schema::DefaultValueKind;
+    using DefaultValueSpec = detail::static_schema::DefaultValueSpec;
+    using FunctionParameterSpec = detail::static_schema::FunctionParameterSpec;
+    using FunctionReturnSpec = detail::static_schema::FunctionReturnSpec;
+    using FunctionSpec = detail::static_schema::FunctionSpec;
+
+    template <typename T>
+    static boost::json::object make_key_value_object(const std::string &key, const T &value)
+    {
+        boost::json::value json_value;
+        if constexpr (std::is_same_v<T, bool>) {
+            json_value = value;
+        } else if constexpr (std::is_same_v<T, int32_t>) {
+            json_value = value;
+        } else if constexpr (std::is_integral_v<T> &&(sizeof(T) * 8 <= 32)) {
+            json_value = static_cast<int32_t>(value);
+        } else {
+            json_value = BROOKESIA_DESCRIBE_JSON_SERIALIZE(value);
+        }
+
+        return boost::json::object{{key, std::move(json_value)}};
+    }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the static schema specifications ////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    inline static constexpr std::span<const FunctionParameterSpec> EMPTY_PARAMETERS = {};
+
+    inline static constexpr DefaultValueSpec DEFAULT_NAMESPACE_DEFAULT = {
+        .kind = DefaultValueKind::String,
+        .string = DEFAULT_NAMESPACE.data(),
+    };
+
+    inline static constexpr DefaultValueSpec EMPTY_ARRAY_DEFAULT = {
+        .kind = DefaultValueKind::JsonArray,
+        .string = "[]",
+    };
+
+    inline static constexpr DefaultValueSpec TRUE_DEFAULT = {
+        .kind = DefaultValueKind::Bool,
+        .boolean = true,
+    };
+
+    inline static constexpr DefaultValueSpec DOT_DEFAULT = {
+        .kind = DefaultValueKind::String,
+        .string = ".",
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 1> KV_LIST_PARAMETERS = {{
+            {
+                .name = "Nspace",
+                .description = "Namespace to list (optional). Uses the default namespace when omitted.",
+                .type = FunctionValueType::String,
+                .default_value = DEFAULT_NAMESPACE_DEFAULT,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> KV_SET_PARAMETERS = {{
+            {
+                .name = "Nspace",
+                .description = "Namespace to write (optional). Uses the default namespace when omitted or empty.",
+                .type = FunctionValueType::String,
+                .default_value = DEFAULT_NAMESPACE_DEFAULT,
+            },
+            {
+                .name = "KeyValuePairs",
+                .description =
+                R"(Key-value pairs as a JSON object. Allowed value types: ["Bool","Int","String"]. )"
+                R"(Example: {"key1":"value1","key2":2,"key3":true})",
+                .type = FunctionValueType::Object,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> KV_GET_PARAMETERS = {{
+            {
+                .name = "Nspace",
+                .description = "Namespace to read (optional). Uses the default namespace when omitted.",
+                .type = FunctionValueType::String,
+                .default_value = DEFAULT_NAMESPACE_DEFAULT,
+            },
+            {
+                .name = "Keys",
+                .description =
+                R"(Keys to read as JSON array<string> (optional). Returns all pairs when omitted. )"
+                R"(Example: ["key1","key2","key3"])",
+                .type = FunctionValueType::Array,
+                .default_value = EMPTY_ARRAY_DEFAULT,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> KV_ERASE_PARAMETERS = {{
+            {
+                .name = "Nspace",
+                .description = "Namespace to erase (optional). Uses the default namespace when omitted.",
+                .type = FunctionValueType::String,
+                .default_value = DEFAULT_NAMESPACE_DEFAULT,
+            },
+            {
+                .name = "Keys",
+                .description =
+                R"(Keys to erase as JSON array<string> (optional). Erases all pairs when omitted or empty. )"
+                R"(Example: ["key1","key2","key3"])",
+                .type = FunctionValueType::Array,
+                .default_value = EMPTY_ARRAY_DEFAULT,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 1> FILE_SYSTEM_CAPACITY_PARAMETERS = {{
+            {
+                .name = "MountPoint",
+                .description = "Mount point returned by GetFileSystems.",
+                .type = FunctionValueType::String,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 1> FS_PATH_PARAMETERS = {{
+            {
+                .name = "Path",
+                .description = "Absolute path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 1> FS_DIRECTORY_PATH_PARAMETERS = {{
+            {
+                .name = "Path",
+                .description = "Absolute directory path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 1> FS_FILE_PATH_PARAMETERS = {{
+            {
+                .name = "Path",
+                .description = "Absolute file path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> FS_READ_PARAMETERS = {{
+            {
+                .name = "Path",
+                .description = "Absolute file path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+            {
+                .name = "Buffer",
+                .description = "Mutable raw destination buffer.",
+                .type = FunctionValueType::RawBuffer,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> FS_WRITE_TEXT_PARAMETERS = {{
+            {
+                .name = "Path",
+                .description = "Absolute file path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+            {
+                .name = "Data",
+                .description = "Text content to write.",
+                .type = FunctionValueType::String,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> FS_WRITE_PARAMETERS = {{
+            {
+                .name = "Path",
+                .description = "Absolute file path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+            {
+                .name = "Data",
+                .description = "Raw source buffer.",
+                .type = FunctionValueType::RawBuffer,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> FS_RENAME_PARAMETERS = {{
+            {
+                .name = "From",
+                .description = "Source absolute path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+            {
+                .name = "To",
+                .description = "Destination absolute path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 3> FS_COPY_TREE_PARAMETERS = {{
+            {
+                .name = "From",
+                .description = "Source absolute path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+            {
+                .name = "To",
+                .description = "Destination absolute path under a mounted Storage file system.",
+                .type = FunctionValueType::String,
+            },
+            {
+                .name = "Overwrite",
+                .description = "Overwrite existing destination files.",
+                .type = FunctionValueType::Boolean,
+                .default_value = TRUE_DEFAULT,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> MAKE_KV_KEY_PARAMETERS = {{
+            {
+                .name = "Parts",
+                .description = "Name parts as JSON array<string>. Empty parts are rejected.",
+                .type = FunctionValueType::Array,
+            },
+            {
+                .name = "Separator",
+                .description = "Separator inserted between name parts.",
+                .type = FunctionValueType::String,
+                .default_value = DOT_DEFAULT,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionParameterSpec, 2> MAKE_KV_NAMESPACE_PARAMETERS = {{
+            {
+                .name = "Parts",
+                .description = "Namespace parts as JSON array<string>. Empty parts are rejected.",
+                .type = FunctionValueType::Array,
+            },
+            {
+                .name = "Separator",
+                .description = "Separator inserted between namespace parts.",
+                .type = FunctionValueType::String,
+                .default_value = DOT_DEFAULT,
+            },
+        }
+    };
+
+    inline static constexpr std::array<FunctionSpec, static_cast<size_t>(FunctionId::Max)> FUNCTION_SPECS = {{
+            {
+                .name = "KVList",
+                .description = "List key-value entries in a Storage namespace.",
+                .parameters = KV_LIST_PARAMETERS,
+                .default_timeout_ms = KV_DEFAULT_TIMEOUT_MS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Array,
+                    .description =
+                    R"(Example: [{"nspace":"storage","key":"key1","type":"String"},)"
+                    R"({"nspace":"storage","key":"key2","type":"Int"}])",
+                },
+            },
+            {
+                .name = "KVSet",
+                .description = "Set key-value pairs in a Storage namespace.",
+                .parameters = KV_SET_PARAMETERS,
+                .default_timeout_ms = KV_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "KVGet",
+                .description = "Get key-value pairs by keys from a Storage namespace.",
+                .parameters = KV_GET_PARAMETERS,
+                .default_timeout_ms = KV_DEFAULT_TIMEOUT_MS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Object,
+                    .description = R"(Example: {"key1":"value1","key2":2,"key3":true})",
+                },
+            },
+            {
+                .name = "KVErase",
+                .description = "Erase key-value pairs from a Storage namespace.",
+                .parameters = KV_ERASE_PARAMETERS,
+                .default_timeout_ms = FS_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "GetFileSystems",
+                .description = "Get mounted storage file systems.",
+                .parameters = EMPTY_PARAMETERS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Array,
+                    .description =
+                    R"(Example: [{"fs_type":"LittleFS","medium_type":"Flash","mount_point":"/littlefs",)"
+                    R"("supports_directories":true},{"fs_type":"FATFS","medium_type":"SDCard",)"
+                    R"("mount_point":"/sdcard","supports_directories":true}])",
+                },
+            },
+            {
+                .name = "GetFileSystemCapacity",
+                .description = "Get one mounted storage file system capacity.",
+                .parameters = FILE_SYSTEM_CAPACITY_PARAMETERS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Object,
+                    .description = R"(Example: {"total_bytes":1048576,"used_bytes":262144,"free_bytes":786432})",
+                },
+            },
+            {
+                .name = "FSStat",
+                .description = "Get file-system path information.",
+                .parameters = FS_PATH_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_DEFAULT_TIMEOUT_MS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Object,
+                    .description = R"(Example: {"type":"File","size":16,"mtime_ms":1000,"exists":true})",
+                },
+            },
+            {
+                .name = "FSList",
+                .description = "List direct children under a file-system directory.",
+                .parameters = FS_DIRECTORY_PATH_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_DEFAULT_TIMEOUT_MS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Array,
+                    .description =
+                    R"(Example: [{"name":"file.txt","info":{"type":"File","size":16,"mtime_ms":1000,)"
+                    R"("exists":true}}])",
+                },
+            },
+            {
+                .name = "FSMkdir",
+                .description = "Create a file-system directory tree.",
+                .parameters = FS_DIRECTORY_PATH_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "FSReadText",
+                .description = "Read a file-system file as text.",
+                .parameters = FS_FILE_PATH_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_READ_TEXT_DEFAULT_TIMEOUT_MS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::String,
+                    .description = "File contents.",
+                },
+            },
+            {
+                .name = "FSRead",
+                .description = "Read a file-system file into a mutable raw buffer.",
+                .parameters = FS_READ_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_READ_DEFAULT_TIMEOUT_MS,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Number,
+                    .description = "Number of bytes read.",
+                },
+            },
+            {
+                .name = "FSWriteText",
+                .description = "Write text to a file-system file.",
+                .parameters = FS_WRITE_TEXT_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_WRITE_TEXT_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "FSWrite",
+                .description = "Write raw data to a file-system file.",
+                .parameters = FS_WRITE_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_WRITE_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "FSRemove",
+                .description = "Remove a file-system file or directory tree.",
+                .parameters = FS_PATH_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_REMOVE_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "FSRename",
+                .description = "Rename or move a file-system path.",
+                .parameters = FS_RENAME_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_RENAME_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "FSCopyTree",
+                .description = "Copy a file-system directory tree.",
+                .parameters = FS_COPY_TREE_PARAMETERS,
+                .require_scheduler = FS_REQUIRE_SCHEDULER,
+                .default_timeout_ms = FS_COPY_TREE_DEFAULT_TIMEOUT_MS,
+            },
+            {
+                .name = "MakeKVKey",
+                .description = "Generate a key that satisfies the active Storage KV backend limits.",
+                .parameters = MAKE_KV_KEY_PARAMETERS,
+                .require_scheduler = false,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Object,
+                    .description =
+                    R"(Example: {"name":"h1abc","original_name":"bkl.display_lcd.On","hashed":true,)"
+                    R"("warning":"KV key exceeded backend limit and was replaced by a stable hash"})",
+                },
+            },
+            {
+                .name = "MakeKVNamespace",
+                .description = "Generate a namespace that satisfies the active Storage KV backend limits.",
+                .parameters = MAKE_KV_NAMESPACE_PARAMETERS,
+                .require_scheduler = false,
+                .return_value = FunctionReturnSpec{
+                    .type = FunctionValueType::Object,
+                    .description =
+                    R"(Example: {"name":"Display","original_name":"Display","hashed":false,"warning":""})",
+                },
+            },
+        }
+    };
+
+    static_assert(FUNCTION_SPECS.size() == static_cast<size_t>(FunctionId::Max));
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the event schemas /////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Storage has no events, so no event schemas are defined
+
+public:
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the functions required by the Base class /////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * @brief Service name used by `ServiceManager`.
+     *
+     * @return std::string_view Stable service name.
+     */
+    static constexpr std::string_view get_name()
+    {
+        return "Storage";
+    }
+
+    /**
+     * @brief Get function schemas exported by Storage service.
+     *
+     * @return std::span<const FunctionSchema> Static function schema span.
+     */
+    static std::span<const FunctionSchema> get_function_schemas()
+    {
+        static std::array<FunctionSchema, FUNCTION_SPECS.size()> schemas;
+        static const bool initialized = [] {
+            detail::static_schema::materialize_function_schemas(FUNCTION_SPECS, schemas);
+            return true;
+        }();
+        static_cast<void>(initialized);
+        return schemas;
+    }
+
+    /**
+     * @brief Get event schemas exported by Storage service.
+     *
+     * @return std::span<const EventSchema> Empty span because Storage has no events.
+     */
+    static std::span<const EventSchema> get_event_schemas()
+    {
+        return std::span<const EventSchema>();
+    }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the function helper methods //////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * @brief Default timeout for synchronous Storage helper calls.
+     */
+    static std::expected<KvNameResult, std::string> make_kv_key(
+        std::initializer_list<std::string_view> parts, std::string_view separator = ".",
+        uint32_t timeout_ms = 0
+    )
+    {
+        return make_kv_name(FunctionId::MakeKVKey, parts, separator, timeout_ms);
+    }
+
+    static std::expected<KvNameResult, std::string> make_kv_namespace(
+        std::initializer_list<std::string_view> parts, std::string_view separator = ".",
+        uint32_t timeout_ms = 0
+    )
+    {
+        return make_kv_name(FunctionId::MakeKVNamespace, parts, separator, timeout_ms);
+    }
+
+    static std::expected<std::vector<EntryInfo>, std::string> kv_list(
+        const std::string &nspace, uint32_t timeout_ms = 0
+    )
+    {
+        auto binding = ServiceManager::get_instance().bind(get_name().data());
+        if (!binding.is_valid()) {
+            return std::unexpected("Failed to bind service");
+        }
+
+        auto result = call_function_sync<boost::json::array>(FunctionId::KVList, nspace, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(
+                       (boost::format("Failed to list Storage %1%: %2%") % nspace % result.error()).str()
+                   );
+        }
+
+        std::vector<EntryInfo> entries;
+        if (!BROOKESIA_DESCRIBE_FROM_JSON(result.value(), entries)) {
+            return std::unexpected(
+                       (boost::format("Failed to parse Storage KV list result: %1%") %
+                        BROOKESIA_DESCRIBE_TO_STR(result.value())).str()
+                   );
+        }
+        return entries;
+    }
+
+    static std::expected<FileInfo, std::string> fs_stat(
+        const std::string &path, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync<boost::json::object>(FunctionId::FSStat, path, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+
+        FileInfo info;
+        if (!BROOKESIA_DESCRIBE_FROM_JSON(result.value(), info)) {
+            return std::unexpected(
+                       (boost::format("Failed to parse Storage FS stat result: %1%") %
+                        BROOKESIA_DESCRIBE_TO_STR(result.value())).str()
+                   );
+        }
+        return info;
+    }
+
+    static std::expected<std::vector<FileEntry>, std::string> fs_list(
+        const std::string &path, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync<boost::json::array>(FunctionId::FSList, path, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+
+        std::vector<FileEntry> entries;
+        if (!BROOKESIA_DESCRIBE_FROM_JSON(result.value(), entries)) {
+            return std::unexpected(
+                       (boost::format("Failed to parse Storage FS list result: %1%") %
+                        BROOKESIA_DESCRIBE_TO_STR(result.value())).str()
+                   );
+        }
+        return entries;
+    }
+
+    static std::expected<void, std::string> fs_mkdir(
+        const std::string &path, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync(FunctionId::FSMkdir, path, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return {};
+    }
+
+    static std::expected<std::string, std::string> fs_read_text(
+        const std::string &path, uint32_t timeout_ms = 0
+    )
+    {
+        return call_function_sync<std::string>(FunctionId::FSReadText, path, Timeout(timeout_ms));
+    }
+
+    /**
+     * Read many text files in one Storage function batch.
+     *
+     * On ESP without PSRAM XIP, each FSReadText otherwise hops to the cache-safe
+     * Storage worker. Batching keeps LittleFS I/O on that worker while paying
+     * one scheduler round-trip for the whole document.
+     */
+    static std::expected<std::vector<std::string>, std::string> fs_read_text_many(
+        const std::vector<std::string> &paths, uint32_t timeout_ms = 0
+    )
+    {
+        std::vector<std::string> contents;
+        contents.reserve(paths.size());
+        if (paths.empty()) {
+            return contents;
+        }
+        if (paths.size() == 1) {
+            auto one = fs_read_text(paths.front(), timeout_ms);
+            if (!one) {
+                return std::unexpected(one.error());
+            }
+            contents.push_back(std::move(*one));
+            return contents;
+        }
+
+        auto binding = ServiceManager::get_instance().bind(get_name().data());
+        if (!binding.is_valid()) {
+            return std::unexpected("Failed to bind service");
+        }
+        auto service = binding.get_service();
+        if (!service) {
+            return std::unexpected("Service not found");
+        }
+
+        std::vector<FunctionCall> calls;
+        calls.reserve(paths.size());
+        const auto method_name = BROOKESIA_DESCRIBE_ENUM_TO_STR(FunctionId::FSReadText);
+        for (const auto &path : paths) {
+            calls.push_back(FunctionCall{
+                .name = std::string(method_name),
+                .parameters = {{"Path", path}},
+            });
+        }
+
+        uint32_t batch_timeout_ms = timeout_ms;
+        if (batch_timeout_ms == 0) {
+            // call_functions_sync runs FSReadText calls sequentially under one timeout.
+            const auto timeout_product =
+                static_cast<uint64_t>(paths.size()) *
+                static_cast<uint64_t>(FS_READ_TEXT_DEFAULT_TIMEOUT_MS);
+            batch_timeout_ms = (timeout_product > UINT32_MAX)
+                               ? UINT32_MAX
+                               : static_cast<uint32_t>(timeout_product);
+        }
+        auto batch = service->call_functions_sync(std::move(calls), batch_timeout_ms);
+        if (!batch.success || batch.results.size() != paths.size()) {
+            std::string error = "Failed to batch-read Storage text files";
+            for (const auto &item : batch.results) {
+                if (!item.success && !item.error_message.empty()) {
+                    error.append(": ").append(item.error_message);
+                    break;
+                }
+            }
+            return std::unexpected(error);
+        }
+
+        for (size_t i = 0; i < batch.results.size(); ++i) {
+            auto &item = batch.results[i];
+            if (!item.success || !item.data.has_value()) {
+                return std::unexpected(
+                           "Failed to read file: " + paths[i] +
+                           (item.error_message.empty() ? "" : (", error: " + item.error_message))
+                       );
+            }
+            auto *text = std::get_if<std::string>(&(*item.data));
+            if (text == nullptr) {
+                return std::unexpected("Storage FSReadText result is not text: " + paths[i]);
+            }
+            contents.push_back(std::move(*text));
+        }
+        return contents;
+    }
+
+    static std::expected<size_t, std::string> fs_read(
+        const std::string &path, const RawBuffer &buffer, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync<double>(FunctionId::FSRead, path, buffer, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return static_cast<size_t>(result.value());
+    }
+
+    static std::expected<void, std::string> fs_write_text(
+        const std::string &path, const std::string &data, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync(FunctionId::FSWriteText, path, data, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return {};
+    }
+
+    static std::expected<void, std::string> fs_write(
+        const std::string &path, const RawBuffer &data, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync(FunctionId::FSWrite, path, data, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return {};
+    }
+
+    static std::expected<void, std::string> fs_remove(
+        const std::string &path, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync(FunctionId::FSRemove, path, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return {};
+    }
+
+    static std::expected<void, std::string> fs_rename(
+        const std::string &from, const std::string &to, uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync(FunctionId::FSRename, from, to, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return {};
+    }
+
+    static std::expected<void, std::string> fs_copy_tree(
+        const std::string &from, const std::string &to, bool overwrite = true,
+        uint32_t timeout_ms = 0
+    )
+    {
+        auto result = call_function_sync(FunctionId::FSCopyTree, from, to, overwrite, Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        return {};
+    }
+
+    /**
+     * @brief Save key-value pairs to the Storage namespace
+     *
+     * @note The storage method depends on the type T:
+     *
+     * **Direct Storage (No Serialization):**
+     * - `bool`: Stored directly as JSON boolean value (true/false)
+     * - `int32_t`: Stored directly as JSON number (int64_t in JSON)
+     * - Integer types with size <= 32 bits (int8_t, uint8_t, int16_t, uint16_t, char, short, etc.):
+     *   Converted to int32_t and stored as JSON number for optimal performance
+     *
+     * **Serialized Storage:**
+     * - Integer types with size > 32 bits (int64_t, uint64_t, long long, etc.):
+     *   Serialized to JSON string using BROOKESIA_DESCRIBE_JSON_SERIALIZE
+     * - Floating point types (float, double):
+     *   Serialized to JSON string using BROOKESIA_DESCRIBE_JSON_SERIALIZE
+     * - String types (std::string, const char*):
+     *   Serialized to JSON string using BROOKESIA_DESCRIBE_JSON_SERIALIZE
+     * - Complex types (std::vector, std::map, custom structs, etc.):
+     *   Serialized to JSON string using BROOKESIA_DESCRIBE_JSON_SERIALIZE
+     *
+     * @tparam T The type of the value to save
+     * @param nspace The namespace of the key-value pairs to save
+     * @param key The key of the key-value pair to save
+     * @param value The value of the key-value pair to save
+     * @param timeout_ms The timeout in milliseconds
+     * @return std::expected<void, std::string> The result of the operation
+     */
+    template <typename T>
+    static std::expected<void, std::string> save_key_value(
+        const std::string &nspace, const std::string &key, const T &value, uint32_t timeout_ms = 0
+    )
+    {
+        auto binding = ServiceManager::get_instance().bind(get_name().data());
+        if (!binding.is_valid()) {
+            return std::unexpected("Failed to bind service");
+        }
+
+        auto data_object = make_key_value_object(key, value);
+        auto result = call_function_sync(FunctionId::KVSet, nspace, std::move(data_object), Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(
+                       (boost::format("Failed to save %1% to Storage %2%: %3%") % key % nspace % result.error()).str()
+                   );
+        }
+
+        return {};
+    }
+
+    /**
+     * @brief Save key-value pairs to the Storage namespace asynchronously.
+     *
+     * The value conversion rules are identical to `save_key_value()`. The helper keeps a temporary
+     * Storage service binding alive until the asynchronous function result is delivered.
+     *
+     * @tparam T The type of the value to save
+     * @param nspace The namespace of the key-value pairs to save
+     * @param key The key of the key-value pair to save
+     * @param value The value of the key-value pair to save
+     * @param handler Optional result handler
+     * @return true if the async call was submitted, false otherwise
+     */
+    template <typename T>
+    static bool save_key_value_async(
+        const std::string &nspace, const std::string &key, const T &value,
+        ServiceBase::FunctionResultHandler handler = nullptr
+    )
+    {
+        auto binding = std::make_shared<ServiceBinding>(ServiceManager::get_instance().bind(get_name().data()));
+        if (!binding->is_valid()) {
+            return false;
+        }
+
+        auto wrapped_handler = [
+                                   binding,
+                                   handler = std::move(handler)
+        ](FunctionResult && result) mutable {
+            if (handler != nullptr)
+            {
+                handler(std::move(result));
+            }
+        };
+
+        auto data_object = make_key_value_object(key, value);
+        return call_function_async(
+                   FunctionId::KVSet,
+                   nspace,
+                   std::move(data_object),
+                   ServiceBase::FunctionResultHandler(std::move(wrapped_handler))
+               );
+    }
+
+    /**
+     * @brief Get key-value pair from the Storage namespace
+     *
+     * @note The retrieval method depends on the type T and matches the storage method used in save_key_value():
+     *
+     * **Direct Retrieval (No Deserialization):**
+     * - `bool`: Retrieved directly from JSON boolean value
+     * - `int32_t`: Retrieved directly from JSON number
+     * - Integer types with size <= 32 bits (int8_t, uint8_t, int16_t, uint16_t, char, short, etc.):
+     *   Retrieved directly from JSON number and converted to the target integer type
+     *
+     * **Deserialized Retrieval:**
+     * - Integer types with size > 32 bits (int64_t, uint64_t, long long, etc.):
+     *   Retrieved directly from JSON string and deserialized to the target integer type
+     * - Floating point types (float, double):
+     *   Retrieved directly from JSON string and deserialized to the target floating point type
+     * - String types (std::string):
+     *   Retrieved directly from JSON string and deserialized to the target string type
+     * - Complex types (std::vector, std::map, custom structs, etc.):
+     *   Retrieved directly from JSON string and deserialized to the target complex type
+     *
+     * @tparam T The type of the value to retrieve
+     * @param nspace The namespace of the key-value pair to retrieve
+     * @param key The key of the key-value pair to retrieve
+     * @param timeout_ms The timeout in milliseconds
+     * @return std::expected<T, std::string> The retrieved value or error message
+     */
+    template <typename T>
+    static std::expected<T, std::string> get_key_value(
+        const std::string &nspace, const std::string &key, uint32_t timeout_ms = 0
+    )
+    {
+        auto binding = ServiceManager::get_instance().bind(get_name().data());
+        if (!binding.is_valid()) {
+            return std::unexpected("Failed to bind service");
+        }
+
+        auto result = call_function_sync<boost::json::object>(
+                          FunctionId::KVGet, nspace, boost::json::array{key}, Timeout(timeout_ms)
+                      );
+        if (!result) {
+            return std::unexpected(
+                       (boost::format("Failed to get %1% from Storage %2%: %3%") % key % nspace % result.error()).str()
+                   );
+        }
+
+        auto &data_obj = result.value();
+        if (!data_obj.contains(key)) {
+            return std::unexpected((boost::format("Key %1% not found in namespace %2%") % key % nspace).str());
+        }
+
+        auto value_json = data_obj.at(key);
+        T value;
+
+        if constexpr (std::is_same_v<T, bool>) {
+            if (!value_json.is_bool()) {
+                return std::unexpected(
+                           (boost::format("Value for key %1% in namespace %2% is not a boolean") % key % nspace).str()
+                       );
+            }
+            value = value_json.as_bool();
+        } else if constexpr (std::is_integral_v<T> &&(sizeof(T) * 8 <= 32)) {
+            if (!value_json.is_number()) {
+                return std::unexpected(
+                           (boost::format("Value for key %1% in namespace %2% is not a number") % key % nspace).str()
+                       );
+            }
+            if (value_json.is_int64()) {
+                value = static_cast<T>(value_json.as_int64());
+            } else if (value_json.is_uint64()) {
+                value = static_cast<T>(value_json.as_uint64());
+            } else {
+                return std::unexpected(
+                           (boost::format("Value for key %1% in namespace %2% is not a integer") % key % nspace).str()
+                       );
+            }
+        } else {
+            if (!value_json.is_string()) {
+                return std::unexpected(
+                           (boost::format("Value for key %1% in namespace %2% is not a string") % key % nspace).str()
+                       );
+            }
+            auto value_str = std::string(value_json.as_string());
+            if (!BROOKESIA_DESCRIBE_JSON_DESERIALIZE(value_str, value)) {
+                return std::unexpected((boost::format("Failed to parse value from: %1%") % value_str).str());
+            }
+        }
+
+        return value;
+    }
+
+    /**
+     * @brief Erase key-value pairs from the Storage namespace
+     *
+     * @param nspace The namespace of the key-value pairs to erase
+     * @param keys The keys of the key-value pairs to erase, optional. If not provided or empty, all key-value pairs in the namespace will be erased
+     * @param timeout_ms The timeout in milliseconds
+     * @return std::expected<void, std::string> The result of the operation
+     */
+    static std::expected<void, std::string> erase_keys(
+        const std::string &nspace, const std::vector<std::string> &keys = {}, uint32_t timeout_ms = 0
+    )
+    {
+        auto binding = ServiceManager::get_instance().bind(get_name().data());
+        if (!binding.is_valid()) {
+            return std::unexpected("Failed to bind service");
+        }
+
+        boost::json::array keys_array;
+        keys_array.reserve(keys.size());
+        for (const auto &key : keys) {
+            keys_array.push_back(boost::json::value(key));
+        }
+        auto result = call_function_sync(FunctionId::KVErase, nspace, std::move(keys_array), Timeout(timeout_ms));
+        if (!result) {
+            return std::unexpected(
+                       (boost::format("Failed to erase keys from Storage %1%: %2%") % nspace % result.error()).str()
+                   );
+        }
+
+        return {};
+    }
+
+private:
+    static std::expected<KvNameResult, std::string> make_kv_name(
+        FunctionId function_id, std::initializer_list<std::string_view> parts, std::string_view separator,
+        uint32_t timeout_ms = 0
+    )
+    {
+        boost::json::array parts_json;
+        parts_json.reserve(parts.size());
+        for (const auto part : parts) {
+            parts_json.emplace_back(std::string(part));
+        }
+
+        auto result = call_function_sync<boost::json::object>(
+                          function_id, std::move(parts_json), std::string(separator), Timeout(timeout_ms)
+                      );
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+
+        KvNameResult name_result;
+        if (!BROOKESIA_DESCRIBE_FROM_JSON(result.value(), name_result)) {
+            return std::unexpected(
+                       (boost::format("Failed to parse Storage KV name result: %1%") %
+                        BROOKESIA_DESCRIBE_TO_STR(result.value())).str()
+                   );
+        }
+        return name_result;
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// The following are the describe macros //////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+BROOKESIA_DESCRIBE_STRUCT(StorageFileSystemInfo, (), (fs_type, medium_type, mount_point, supports_directories));
+BROOKESIA_DESCRIBE_ENUM(Storage::FileType, Missing, File, Directory, Other, Max);
+BROOKESIA_DESCRIBE_STRUCT(Storage::FileInfo, (), (type, size, mtime_ms, exists));
+BROOKESIA_DESCRIBE_STRUCT(Storage::FileEntry, (), (name, info));
+BROOKESIA_DESCRIBE_STRUCT(Storage::KvNameResult, (), (name, original_name, hashed, warning));
+BROOKESIA_DESCRIBE_ENUM(
+    Storage::FunctionId, KVList, KVSet, KVGet, KVErase, GetFileSystems, GetFileSystemCapacity, FSStat, FSList,
+    FSMkdir, FSReadText, FSRead, FSWriteText, FSWrite, FSRemove, FSRename, FSCopyTree, MakeKVKey, MakeKVNamespace,
+    Max
+);
+BROOKESIA_DESCRIBE_ENUM(Storage::EventId, Max);
+
+} // namespace esp_brookesia::service::helper

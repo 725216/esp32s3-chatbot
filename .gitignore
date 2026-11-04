@@ -1,0 +1,35 @@
+# ESP-IDF 构建产物
+build/
+managed_components/
+sdkconfig
+sdkconfig.old
+sdkconfig.cur_*
+# LOCAL FIX (2026-11-04): dependencies.lock 含本地绝对路径 (D:\esp32s3_chatbot\vendor\...)，
+# 提交后云编译 (Linux) 无法解析导致组件丢失、app_main 链接失败；云端由组件管理器重新生成
+dependencies.lock
+
+# 日志/临时（可能含串口输出、WiFi 信息）
+*.log
+*.pyc
+__pycache__/
+serial_*.log
+flash_*.log
+monitor_*.log
+reconf_*.log
+regen_*.log
+cap_*.log
+bmgr_*.log
+
+# 串口捕获
+serial_capture.*
+
+# IDE
+.vscode/
+.idea/
+
+# vendor 中组件的下载缓存（vendor 本体必须提交！）
+vendor/**/downloads/
+vendor/**/.component_hash
+
+# 临时分析文件
+_tmp_avp/

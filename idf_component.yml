@@ -1,0 +1,7 @@
+dependencies:
+  espressif/brookesia_hal_adaptor: "=0.8.1"
+  espressif/brookesia_agent_manager: "=0.8.1"
+  espressif/brookesia_agent_xiaozhi: "=0.8.1"
+  espressif/brookesia_agent_coze: "=0.8.1"
+  espressif/brookesia_service_audio: "=0.8.1"
+

@@ -1,0 +1,17 @@
+version: "0.8.2"
+description: ESP-Brookesia core utility library which provides `task scheduler`, `thread configuration`, `performance profilers`, `logging system`, `state machine`, `plugin system`, and various `helper utilities`.
+url: https://github.com/espressif/esp-brookesia/tree/master/utils/brookesia_lib_utils
+repository: https://github.com/espressif/esp-brookesia.git
+issues: https://github.com/espressif/esp-brookesia/issues
+dependencies:
+  # 本地工程使用 IDF 5.3.1，放宽 IDF 版本约束（工具库不依赖 IDF 6.x 专有 API）
+  idf: ">=5.3"
+
+  espressif/cmake_utilities:
+    version: "0.*"
+    require: public
+
+  espressif/esp-boost:
+    version: "0.6.*"
+
+    require: public

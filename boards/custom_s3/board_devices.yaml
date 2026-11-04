@@ -1,0 +1,23 @@
+devices:
+  # MAX98357A I2S 功放（无外置 codec 芯片，I2S 直连输出）
+  - name: audio_dac
+    chip: internal
+    type: audio_codec
+    version: "1.0"
+    config:
+      dac_enabled: true
+      adc_enabled: false
+      mclk_enabled: false
+    peripherals:
+      - name: i2s_out
+
+  # INMP441 I2S 麦克风（无外置 codec 芯片，I2S 直连输入）
+  - name: audio_adc
+    chip: internal
+    type: audio_codec
+    version: "1.0"
+    config:
+      adc_enabled: true
+      dac_enabled: false
+    peripherals:
+      - name: i2s_in

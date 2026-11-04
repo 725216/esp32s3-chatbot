@@ -1,0 +1,37 @@
+# Peripherals Configuration
+peripherals:
+  # MAX98357A I2S 输出：BCLK=GPIO8, WS=GPIO7, DIN=GPIO9（无 MCLK）
+  - name: i2s_out
+    type: i2s
+    role: master
+    format: std-out
+    config:
+      port: 0
+      sample_rate_hz: 16000
+      data_bit_width: 16
+      slot_bit_width: I2S_SLOT_BIT_WIDTH_AUTO
+      slot_mode: I2S_SLOT_MODE_MONO
+      slot_mask: I2S_STD_SLOT_LEFT
+      ws_width: 16
+      pins:
+        bclk: 8
+        ws: 7
+        dout: 9
+
+  # INMP441 I2S 输入：BCLK=GPIO5, WS=GPIO4, DOUT=GPIO6（无 MCLK）
+  - name: i2s_in
+    type: i2s
+    role: master
+    format: std-in
+    config:
+      port: 1
+      sample_rate_hz: 16000
+      data_bit_width: 16
+      slot_bit_width: I2S_SLOT_BIT_WIDTH_AUTO
+      slot_mode: I2S_SLOT_MODE_MONO
+      slot_mask: I2S_STD_SLOT_LEFT
+      ws_width: 16
+      pins:
+        bclk: 5
+        ws: 4
+        din: 6

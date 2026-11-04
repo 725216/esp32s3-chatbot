@@ -1,0 +1,5 @@
+board: custom_s3
+chip: esp32s3
+version: 1.0.0
+description: "ESP32S3 N16R8 INMP441+MAX98357A 无屏"
+manufacturer: "CUSTOM"

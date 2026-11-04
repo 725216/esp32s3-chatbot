@@ -1,0 +1,17 @@
+menu "ESP-Brookesia: Service Bluetooth Configurations"
+    config BROOKESIA_SERVICE_BT_ENABLE_AUTO_REGISTER
+        bool "Enable automatic plugin registration"
+        default y
+        help
+            Automatically register the generic Bluetooth service plugin during startup.
+
+    menuconfig BROOKESIA_SERVICE_BT_ENABLE_DEBUG_LOG
+        bool "Enable debug or lower level logs"
+        default n
+
+    if BROOKESIA_SERVICE_BT_ENABLE_DEBUG_LOG
+        config BROOKESIA_SERVICE_BT_SERVICE_ENABLE_DEBUG_LOG
+            bool "Service"
+            default y
+    endif
+endmenu

@@ -1,0 +1,113 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#pragma once
+
+#if defined(ESP_PLATFORM)
+#   include "sdkconfig.h"
+#endif
+#include "brookesia/service_manager/macro_configs.h"
+
+/**
+ * @brief Default log tag used by the Storage service component.
+ */
+#define BROOKESIA_SERVICE_STORAGE_LOG_TAG "SvcStorage"
+
+/**
+ * @brief Enable automatic plugin registration for the Storage service component.
+ */
+#if !defined(BROOKESIA_SERVICE_STORAGE_ENABLE_AUTO_REGISTER)
+#   if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_ENABLE_AUTO_REGISTER)
+#       define BROOKESIA_SERVICE_STORAGE_ENABLE_AUTO_REGISTER  CONFIG_BROOKESIA_SERVICE_STORAGE_ENABLE_AUTO_REGISTER
+#   else
+#       define BROOKESIA_SERVICE_STORAGE_ENABLE_AUTO_REGISTER  (0)
+#   endif
+#endif
+
+/**
+ * @brief Linker symbol exported when automatic plugin registration is enabled.
+ */
+#if BROOKESIA_SERVICE_STORAGE_ENABLE_AUTO_REGISTER
+#   if !defined(BROOKESIA_SERVICE_STORAGE_PLUGIN_SYMBOL)
+#       define BROOKESIA_SERVICE_STORAGE_PLUGIN_SYMBOL  service_storage_symbol
+#   endif
+#endif
+
+#if !defined(BROOKESIA_SERVICE_STORAGE_ENABLE_DEBUG_LOG)
+#   if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_ENABLE_DEBUG_LOG)
+#       define BROOKESIA_SERVICE_STORAGE_ENABLE_DEBUG_LOG  CONFIG_BROOKESIA_SERVICE_STORAGE_ENABLE_DEBUG_LOG
+#   else
+#       define BROOKESIA_SERVICE_STORAGE_ENABLE_DEBUG_LOG  (0)
+#   endif
+#endif
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////// Worker /////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#if !defined(BROOKESIA_SERVICE_STORAGE_ENABLE_PRIVATE_SCHEDULER)
+#   define BROOKESIA_SERVICE_STORAGE_ENABLE_PRIVATE_SCHEDULER \
+    (BROOKESIA_SERVICE_MANAGER_WORKER_STACK_IN_EXT && !BROOKESIA_SERVICE_MANAGER_SECONDARY_SCHEDULER_ENABLE)
+#endif
+
+#if BROOKESIA_SERVICE_STORAGE_ENABLE_PRIVATE_SCHEDULER
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_NAME)
+#      if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_NAME)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_NAME  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_NAME
+#      else
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_NAME  "SvcStorage"
+#      endif
+#   endif
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_PRIORITY)
+#      if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_PRIORITY)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_PRIORITY  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_PRIORITY
+#      else
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_PRIORITY  (10)
+#      endif
+#   endif
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_STACK_SIZE)
+#      if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_STACK_SIZE)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_STACK_SIZE  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_STACK_SIZE
+#      else
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_STACK_SIZE  (6144)
+#      endif
+#   endif
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_POLL_INTERVAL_MS)
+#      if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_POLL_INTERVAL_MS)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_POLL_INTERVAL_MS  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_POLL_INTERVAL_MS
+#      else
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_POLL_INTERVAL_MS  (10)
+#      endif
+#   endif
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_NUM)
+#      if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_NUM)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_NUM  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_NUM
+#      else
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_NUM  (2)
+#      endif
+#   endif
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID)
+#      if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID
+#      elif defined(BROOKESIA_SERVICE_STORAGE_WORKER_CORE_ID)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID  BROOKESIA_SERVICE_STORAGE_WORKER_CORE_ID
+#      elif defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_CORE_ID)
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_CORE_ID
+#      else
+#          define BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID  (-1)
+#      endif
+#   endif
+#   if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_CORE_ID)
+#      define BROOKESIA_SERVICE_STORAGE_WORKER_CORE_ID  BROOKESIA_SERVICE_STORAGE_WORKER_0_CORE_ID
+#   endif
+#   if BROOKESIA_SERVICE_STORAGE_WORKER_NUM >= 2
+#      if !defined(BROOKESIA_SERVICE_STORAGE_WORKER_1_CORE_ID)
+#          if defined(CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_1_CORE_ID)
+#              define BROOKESIA_SERVICE_STORAGE_WORKER_1_CORE_ID  CONFIG_BROOKESIA_SERVICE_STORAGE_WORKER_1_CORE_ID
+#          else
+#              define BROOKESIA_SERVICE_STORAGE_WORKER_1_CORE_ID  (-1)
+#          endif
+#      endif
+#   endif
+#endif // BROOKESIA_SERVICE_STORAGE_ENABLE_PRIVATE_SCHEDULER

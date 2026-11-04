@@ -1,0 +1,46 @@
+menu "Example Configuration"
+    menuconfig EXAMPLE_AGENTS_ENABLE_OPENAI
+        bool "Enable OpenAI agent (Doubao/豆包 via OpenAI-compatible API)"
+        select BROOKESIA_AGENT_OPENAI_ENABLE_AUTO_REGISTER
+        default y
+
+    if EXAMPLE_AGENTS_ENABLE_OPENAI
+        config EXAMPLE_AGENTS_OPENAI_API_KEY
+            string "API key"
+            default "sk-your-api-key-here"
+
+        config EXAMPLE_AGENTS_OPENAI_MODEL
+            string "Model"
+            default "doubao-realtime"
+
+        config EXAMPLE_AGENTS_OPENAI_VOICE
+            string "Voice"
+            default "alloy"
+
+        config EXAMPLE_AGENTS_OPENAI_APP_ID
+            string "Volcano Ark App ID"
+            default ""
+    endif
+
+    menuconfig EXAMPLE_AGENTS_ENABLE_XIAOZHI
+        bool "Enable Xiaozhi agent"
+        select BROOKESIA_AGENT_XIAOZHI_ENABLE_AUTO_REGISTER
+        default y
+endmenu
+
+menu "Display (屏幕) Configuration"
+    menuconfig APP_ENABLE_DISPLAY
+        bool "Enable display (LCD + LVGL UI) support"
+        default n
+        help
+            开启后编译 main/modules/display/ 屏幕模块（LVGL UI + 表情 emote + 手势）。
+            当前无屏硬件保持关闭；以后接上屏幕（如 ESP32-S3-LCD-EV 板载
+            ST7789/GC9A01 面板）后打开此项并在 menuconfig 里使能
+            BROOKESIA_HAL_ADAPTOR_ENABLE_DISPLAY_DEVICE 及 LCD 面板驱动即可。
+
+    if APP_ENABLE_DISPLAY
+        config APP_DISPLAY_EMOTE_ASSETS
+            bool "Load emote assets from storage partition"
+            default y
+    endif
+endmenu

@@ -1,0 +1,114 @@
+# 与 esp-xiaozhi-internal/main/boards/esp-hi/config.h 及 adc_pdm_audio_codec.cc 对齐：
+# - 麦克风：内部 ADC，通道 2，16 kHz（AUDIO_INPUT_SAMPLE_RATE / AUDIO_ADC_MIC_CHANNEL）
+# - 扬声器：内部 PDM，GPIO6/7 差分（AUDIO_PDM_SPEAK_P/N），24 kHz（AUDIO_OUTPUT_SAMPLE_RATE）
+# - PA：GPIO3（AUDIO_PA_CTL_GPIO）
+# - LCD 引脚：MOSI=4 CLK=5 DC=10，CS/RST 悬空（DISPLAY_*）
+#
+# 说明：按 esp-hi 配置，LCD 使用 ST7789 串行屏。
+#
+version: 1.0.0
+devices:
+  - name: audio_adc
+    chip: internal
+    type: audio_codec
+    version: default
+    config:
+      adc_enabled: true
+      dac_enabled: false
+      adc_local_cfg:
+        sample_rate_hz: 16000
+        max_store_buf_size: 2048
+        conv_frame_size: 1024
+        format: ADC_DIGI_OUTPUT_FORMAT_TYPE2
+        conv_mode: ADC_CONV_SINGLE_UNIT_1
+        unit_id: ADC_UNIT_1
+        channel_list: [2]
+        atten: ADC_ATTEN_DB_0
+
+  - name: audio_dac
+    chip: internal
+    type: audio_codec
+    version: default
+    config:
+      adc_enabled: false
+      dac_enabled: true
+    peripherals:
+      - name: i2s_audio_out
+        tx_aux_out_io: 7
+        tx_aux_out_invert: true
+      - name: gpio_pa_control
+        gain: 6
+        active_level: 1
+
+  - name: display_lcd
+    chip: st7789
+    type: display_lcd
+    sub_type: spi
+    version: default
+    dependencies:
+      jbrilha/esp_lcd_st7789: "*"
+    config:
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
+      x_max: 160
+      y_max: 80
+      invert_color: true
+      need_reset: true
+      io_spi_config:
+        cs_gpio_num: -1
+        dc_gpio_num: 10
+        spi_mode: 0
+        pclk_hz: 40000000
+        trans_queue_depth: 10
+        lcd_cmd_bits: 8
+        lcd_param_bits: 8
+        cs_ena_pretrans: 0
+        cs_ena_posttrans: 0
+        flags:
+          dc_high_on_cmd: false
+          dc_low_on_data: false
+          dc_low_on_param: false
+          octal_mode: false
+          quad_mode: false
+          sio_mode: false
+          lsb_first: false
+          cs_high_active: false
+      lcd_panel_config:
+        reset_gpio_num: -1
+        rgb_ele_order: LCD_RGB_ELEMENT_ORDER_RGB
+        data_endian: LCD_RGB_DATA_ENDIAN_BIG
+        bits_per_pixel: 16
+        flags:
+          reset_active_high: false
+        vendor_config: ""
+    peripherals:
+      - name: spi_display
+
+  - name: boot_button
+    type: button
+    sub_type: gpio
+    version: default
+    config:
+      active_level: 0
+      enable_power_save: false
+      disable_pull: false
+      long_press_time: 2000
+      short_press_time: 0
+      events_cfg:
+        press_down: false
+        press_up: false
+        single_click: true
+        double_click: false
+        multi_click: false
+        click_counts: []
+        long_press_start: false
+        long_press_start_time: []
+        long_press_hold: false
+        long_press_up: false
+        long_press_up_time: []
+        press_repeat: false
+        press_repeat_done: false
+        press_end: false
+    peripherals:
+      - name: gpio_boot_button

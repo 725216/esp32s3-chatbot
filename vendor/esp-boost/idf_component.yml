@@ -1,0 +1,12 @@
+dependencies:
+  # 本地工程使用 IDF 5.3.1，放宽 IDF 版本约束（boost 头文件库，无 IDF 5.5 专有 API 依赖）
+  idf: '>=5.3'
+description: Boost C++ libraries for ESP Series SoCs (ESP32-C5, ESP32-S3, ESP32-P4,
+  etc.)
+issues: https://github.com/espressif/esp-boost/issues
+repository: git://github.com/espressif/esp-boost.git
+repository_info:
+  commit_sha: e5a6e838f888e8d14d85ecc2bd1b7768055021bb
+  path: .
+url: https://github.com/espressif/esp-boost
+version: 0.6.0

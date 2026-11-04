@@ -1,0 +1,7 @@
+# ESP32-S3-N16R8 16MB Flash 分区表（无 OTA，双 Agent 固件 ~3.2MB）
+# LOCAL FIX (2026-10-27): factory 扩到 8MB（esp-gmf/media_lib 解码库增大固件体积），storage 相应减半
+# Name,   Type, SubType, Offset,   Size,    Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x800000,
+storage,  data, spiffs,  0x810000, 0x7F0000,

@@ -1,0 +1,5 @@
+board: esp_hi_skill
+chip: esp32c3
+version: 1.0.0
+description: "ESP-HI board migrated from xiaozhi-esp32 with Board Manager skill workflow"
+manufacturer: "xiaozhi"

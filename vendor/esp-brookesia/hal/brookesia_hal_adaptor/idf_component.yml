@@ -1,0 +1,27 @@
+version: "0.8.4"
+description: ESP-Brookesia HAL adaptor which provides board-side audio and LCD device implementations for brookesia_hal_interface.
+url: https://github.com/espressif/esp-brookesia/tree/master/hal/brookesia_hal_adaptor
+repository: https://github.com/espressif/esp-brookesia.git
+issues: https://github.com/espressif/esp-brookesia/issues
+## NOTE (local build, 2026-10-24): original file used `$CONFIG{...}` conditional
+## dependencies (new idf-component-manager Kconfig syntax) which the IDF 5.3.1
+## bundled component manager cannot evaluate. Board needs none of those
+## components (no BT audio / video / storage FS), so all conditional dependencies
+## are removed except the HAL interface and the audio processor stack.
+## LOCAL FIX (2026-10-27): re-added av_processor (esp-gmf core: audio_manager /
+## audio_playback / audio_recorder / audio_feeder) + media_lib_sal (codecs) so
+## CONFIG_BROOKESIA_HAL_ADAPTOR_AUDIO_ENABLE_PROCESSOR_IMPL can build.
+## LOCAL FIX (2026-10-28): av_processor vendored at vendor/av_processor with its
+## manifest stripped of video/AFE deps (audio-only build); referenced by path to
+## bypass the registry condition evaluator that kept pulling esp_capture/esp-video.
+dependencies:
+  espressif/brookesia_hal_interface:
+    version: "0.8.*"
+    require: public
+  jason-mao/av_processor:
+    version: "0.6.*"
+    override_path: ../../../../vendor/av_processor
+    require: private
+  espressif/media_lib_sal:
+    version: "0.9.3"
+    require: private
