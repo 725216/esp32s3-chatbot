@@ -100,6 +100,11 @@ jobs:
           # 加载 ESP-IDF 环境
           . $IDF_PATH/export.sh
 
+          # LOCAL FIX (2026-11-05): registry 拉取的新版组件 manifest 含 $CONFIG{...} 条件依赖，
+          # idf-component-manager 需要 CONFIG 环境变量指向 sdkconfig 才能解析（否则报
+          # 'Environment variable "CONFIG" is not set'）
+          export CONFIG="$GITHUB_WORKSPACE/sdkconfig"
+
           cd "$GITHUB_WORKSPACE"
           # 完整日志落盘，失败也可诊断（pipefail 保证退出码不被 tee 吞掉）
           set -o pipefail
