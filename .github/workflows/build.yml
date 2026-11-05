@@ -1,9 +1,9 @@
 name: Build ESP32-S3 Chatbot Firmware
 
 # 触发条件：
-# 1. 推送到 main/master 分支
-# 2. 创建 release 标签 (v*)
-# 3. 手动触发 (workflow_dispatch)
+# 1. 推送到 main/master 分支   -> 编译 + 滚动预览 Release（latest-ci，prerelease）
+# 2. 创建 release 标签 (v*)    -> 编译 + 正式 Release（以 tag 为版本号）
+# 3. 手动触发 (workflow_dispatch) -> 只编译；勾选 publish_release 才发布预览 Release
 on:
   push:
     branches: [main, master]
@@ -11,6 +11,11 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '构建成功后发布到 Releases（滚动预览版 latest-ci）'
+        type: boolean
+        default: false
 
 # 并发控制：同一分支只保留最新构建
 concurrency:
@@ -30,6 +35,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 输出供 release 作业使用（artifact 名称依赖 commit_sha）
+    outputs:
+      commit_sha: ${{ steps.version.outputs.commit_sha }}
+      commit_date: ${{ steps.version.outputs.commit_date }}
+      branch: ${{ steps.version.outputs.branch }}
     container:
       image: espressif/idf:v5.3.1
 
@@ -216,56 +226,96 @@ jobs:
           path: build/FLASH_README.md
           retention-days: 30
 
+
+  # ============================================================
+  # 发布到 GitHub Releases
+  # - push tag (v*)            -> 正式 Release，以 tag 为版本号，make_latest
+  # - push main/master         -> 滚动预览 Release（tag: latest-ci，prerelease，资产每次覆盖）
+  # - workflow_dispatch 勾选   -> 同上预览 Release
+  # 注意：必须显式声明 permissions: contents: write，
+  #       否则 GITHUB_TOKEN 默认只读，创建 Release 会 403
+  # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    # 资产名固定（预览版名字不带 commit sha），否则每次构建都会新增一份历史 zip
+    env:
+      BUNDLE_NAME: ${{ startsWith(github.ref, 'refs/tags/') && format('esp32s3_chatbot-firmware-{0}.zip', github.ref_name) || 'esp32s3_chatbot-firmware-latest-ci.zip' }}
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')
 
     steps:
       - name: Download firmware artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: esp32s3_chatbot-firmware-*
-          merge-multiple: true
+          # 按 build 作业输出的确切名称取，避免 pattern/merge-multiple 取错版本
+          name: esp32s3_chatbot-firmware-${{ needs.build.outputs.commit_sha }}
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Download flash instructions
+        uses: actions/download-artifact@v4
         with:
+          name: flash-instructions
+
+      - name: Package release assets
+        shell: bash
+        run: |
+          set -e
+          bundle="${{ env.BUNDLE_NAME }}"
+          mkdir -p dist
+          cp esp32s3_chatbot.bin bootloader.bin partition-table.bin flash_args dist/
+          [ -f version.txt ] && cp version.txt dist/ || true
+          # FLASH_README.md 来自 flash-instructions 工件；缺失时降级为占位说明
+          if [ -f FLASH_README.md ]; then
+            cp FLASH_README.md dist/
+          else
+            echo "# 刷写说明缺失（build 作业未产出 FLASH_README.md）" > FLASH_README.md
+          fi
+          {
+            echo "## ESP32-S3 Chatbot 固件"
+            echo
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Branch: ${{ needs.build.outputs.branch }}"
+            echo
+            echo "下载 \`$bundle\` 解压后即为完整刷写材料（bootloader/partition/app/flash_args）。"
+            echo "注：flash_args 里的路径是 build 目录相对路径，手动刷写请按下表的分区偏移。"
+            echo "已配过网的用户只需刷 app 分区：0x10000 esp32s3_chatbot.bin（保留 WiFi 与 Agent Key）。"
+            echo
+            cat FLASH_README.md
+          } > RELEASE_NOTES.md
+          (cd dist && zip -qr "../$bundle" .)
+          ls -la
+          echo "bundle=$bundle"
+          head -20 RELEASE_NOTES.md
+
+      - name: Publish versioned Release (on tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ESP32-S3 Chatbot ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          make_latest: true
+          fail_on_unmatched_files: true
           files: |
+            ${{ env.BUNDLE_NAME }}
             esp32s3_chatbot.bin
-            bootloader.bin
-            partition-table.bin
-            flash_args
-            FLASH_README.md
-          body: |
-            ## ESP32-S3 Chatbot Firmware
 
-            ### 首次配置
-
-            **固件不包含 API Key**，首次启动后需通过配网页输入：
-
-            1. 刷写固件并上电
-            2. 手机连接设备热点（无密码）
-            3. 浏览器访问 `192.168.4.1`
-            4. 输入火山方舟 API Key（UUID 格式）并保存
-            5. 配置 WiFi 并连接
-
-            ### 按键功能
-
-            - **PTT (GPIO38)**: 按住说话，松开停止
-            - **SWITCH (GPIO21)**: 切换 AI Agent（小智 / 豆包）
-            - **BOOT (GPIO0)**: 按住 2 秒清除 WiFi 配置并重新配网（保留 Key）
-
-            ### 刷写命令
-
-            ```bash
-            esptool.py --port COM4 --baud 921600 write_flash \
-              0x0 bootloader.bin \
-              0x8000 partition-table.bin \
-              0x10000 esp32s3_chatbot.bin
-
-            # 仅更新 App（保留配置）
-            esptool.py --port COM4 --baud 921600 write_flash 0x10000 esp32s3_chatbot.bin
-            ```
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish rolling preview Release (on main / manual)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          # 固定 tag：每次构建都更新同一条预览 Release，资产覆盖不堆积
+          # （tag 已存在时 action 不会移动它，仅创建时指向本次 commit；资产与正文始终是当前构建）
+          tag_name: latest-ci
+          target_commitish: ${{ github.sha }}
+          name: ESP32-S3 Chatbot CI 预览固件
+          prerelease: true
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: false
+          # v2 默认 true；显式写出以便预览版反复覆盖同名资产
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            ${{ env.BUNDLE_NAME }}
+            esp32s3_chatbot.bin
