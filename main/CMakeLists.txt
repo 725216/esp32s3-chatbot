@@ -21,10 +21,14 @@ if(CONFIG_APP_ENABLE_DISPLAY)
     )
 endif()
 
+# LOCAL FIX (2026-11-05): 内置提示音 WAV（16k/16bit/mono）直接嵌入 app 分区，
+# 符号 _binary_tone_connected_wav_start/_end（EMBED_FILES 只取文件基名生成符号）。
+# 播放通路：av_processor 的 raw URI（cfg.in.cb）-> esp_audio_simple_player，不依赖文件系统/网络。
 idf_component_register(
     SRCS ${SRCS}
     INCLUDE_DIRS "."
     REQUIRES nvs_flash
+    EMBED_FILES "${CMAKE_CURRENT_LIST_DIR}/assets/tone_connected.wav"
 )
 
 # esp_peer 预编译库（esp-webrtc）引用了 libnosys 的 telldir/seekdir/rewinddir，

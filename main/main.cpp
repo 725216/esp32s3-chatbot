@@ -21,6 +21,8 @@
 #include "brookesia/lib_utils.hpp"
 #include "brookesia/service_helper.hpp"
 #include "brookesia/service_manager.hpp"
+/* av_processor：内置提示音数据源注册 API（raw URI 通路，见 audio_processor.h） */
+#include "audio_processor.h"
 #include "modules/wifi_provisioning.hpp"
 #include "modules/general_services.hpp"
 /* 屏幕功能（默认关闭）：menuconfig 打开 APP_ENABLE_DISPLAY 后编译 display 模块，
@@ -32,6 +34,7 @@
 using namespace esp_brookesia;
 
 using AgentHelper = service::helper::AgentManager;
+using AudioPlaybackHelper = service::helper::AudioPlayback;
 using OpenaiHelper = service::helper::Openai;
 using XiaoZhiHelper = service::helper::XiaoZhi;
 using WifiHelper = service::helper::Wifi;
@@ -129,6 +132,8 @@ static std::vector<service::EventRegistry::SignalConnection> s_service_connectio
 
 static bool s_wifi_connected = false;
 static std::shared_ptr<lib_utils::TaskScheduler> s_task_scheduler;
+/* 内置提示音数据是否已注册到 av_processor（LOCAL FIX 2026-11-05） */
+static bool s_prompt_tone_registered = false;
 
 /* 日志降噪 */
 static void setup_log_level()
@@ -228,6 +233,90 @@ static void subscribe_xiaozhi_activation_code()
         s_service_connections.push_back(std::move(conn));
     } else {
         ESP_LOGE(LOG_TAG, "Failed to subscribe to XiaoZhi activation code event");
+    }
+}
+
+/* ============================================================================
+ * 内置提示音（LOCAL FIX 2026-11-05）：通电并成功连上小智服务器时响一声
+ * - WAV 由 main/CMakeLists.txt 的 EMBED_FILES 编进 app 分区（只读常量，无需加载）
+ *   格式 16000Hz/16bit/mono，与 boards/custom_s3 的 I2S 配置一致，
+ *   播放链无需重采样/声道/位宽转换（本工程这些转换均关闭）
+ * - 本工程未开启 ESP_AUDIO_SIMPLE_PLAYER 的 HTTP/FILE/EMBED_FLASH IO，
+ *   任何 file://、embed:// URL 都无法播放；因此走 av_processor 新增的
+ *   "raw" URI 通路（播放器从 cfg.in.cb 拉取编码字节流）
+ * - 提示音走 playback 流，agent TTS 走 feeder 流，由 mixer 混合，互不冲突
+ * ==========================================================================*/
+extern const uint8_t tone_connected_wav_start[] asm("_binary_tone_connected_wav_start");
+extern const uint8_t tone_connected_wav_end[]   asm("_binary_tone_connected_wav_end");
+
+/* URI 以 "raw" 开头触发 raw 通路，扩展名决定解码器（wav -> ESP_FOURCC_WAV） */
+static constexpr const char *PROMPT_TONE_URI = "raw://tone_connected.wav";
+
+static void register_prompt_tone()
+{
+    const uint32_t size = static_cast<uint32_t>(tone_connected_wav_end - tone_connected_wav_start);
+    esp_err_t err = audio_playback_set_prompt_data(tone_connected_wav_start, size);
+    if (err != ESP_OK) {
+        ESP_LOGE(LOG_TAG, "Failed to register prompt tone (%lu bytes): %s",
+                 (unsigned long)size, esp_err_to_name(err));
+        return;
+    }
+    s_prompt_tone_registered = true;
+    ESP_LOGI(LOG_TAG, "Prompt tone registered from app partition: %lu bytes", (unsigned long)size);
+}
+
+static void play_prompt_tone()
+{
+    if (!s_prompt_tone_registered) {
+        ESP_LOGW(LOG_TAG, "Prompt tone not registered, skip playing");
+        return;
+    }
+    if (!AudioPlaybackHelper::is_available()) {
+        ESP_LOGW(LOG_TAG, "AudioPlayback service not available, skip prompt tone");
+        return;
+    }
+    /* Config 参数省略 -> 用 schema 默认值 {interrupt:true, delay_ms:0, loop_count:0} */
+    if (!AudioPlaybackHelper::call_function_async(
+                AudioPlaybackHelper::FunctionId::Play, std::string(PROMPT_TONE_URI)
+            )) {
+        ESP_LOGW(LOG_TAG, "Failed to submit prompt tone playback");
+    } else {
+        ESP_LOGI(LOG_TAG, "Prompt tone playback submitted: %s", PROMPT_TONE_URI);
+    }
+}
+
+/* 订阅 AgentManager 通用事件：小智连上服务器（GeneralEvent::Started）时播提示音
+ * agent_xiaozhi 收到 ESP_XIAOZHI_CHAT_EVENT_CONNECTED -> trigger_general_event(Started)
+ * -> AgentManager publish_event("GeneralEventHappened", {Event, IsUnexpected}) */
+static void subscribe_agent_started_tone()
+{
+    auto slot = [](const std::string &event_name, const std::string &agent_event, bool is_unexpected) {
+        (void)event_name;
+        (void)is_unexpected;
+        AgentHelper::GeneralEvent event_enum;
+        if (!BROOKESIA_DESCRIBE_STR_TO_ENUM(agent_event, event_enum)) {
+            ESP_LOGW(LOG_TAG, "Failed to convert agent event: %s", agent_event.c_str());
+            return;
+        }
+        if (event_enum != AgentHelper::GeneralEvent::Started) {
+            return;
+        }
+        /* 只在目标为小智时播报（豆包/OpenAI 连接成功不响） */
+        if (strcmp(current_target_agent, AGENT_XIAOZHI) != 0) {
+            return;
+        }
+        ESP_LOGI(LOG_TAG, "XiaoZhi connected (agent started)");
+        if (s_task_scheduler) {
+            s_task_scheduler->post([]() { play_prompt_tone(); });
+        } else {
+            play_prompt_tone();
+        }
+    };
+    auto conn = AgentHelper::subscribe_event(AgentHelper::EventId::GeneralEventHappened, slot);
+    if (conn.connected()) {
+        s_service_connections.push_back(std::move(conn));
+    } else {
+        ESP_LOGE(LOG_TAG, "Failed to subscribe to agent general event happened event");
     }
 }
 
@@ -471,6 +560,9 @@ extern "C" void app_main(void)
         GeneralServices::get_instance().init_audio();
         GeneralServices::get_instance().start_device();
 
+        /* 注册内置提示音数据（app 分区只读，仅记指针+长度，开销忽略不计） */
+        register_prompt_tone();
+
         /* 启动 ServiceManager */
         auto &service_manager = service::ServiceManager::get_instance();
         BROOKESIA_CHECK_FALSE_EXIT(service_manager.start(), "Failed to start ServiceManager");
@@ -519,6 +611,9 @@ extern "C" void app_main(void)
 
         /* 订阅小智激活码事件（打印到串口日志） */
         subscribe_xiaozhi_activation_code();
+
+        /* 订阅 agent 通用事件：连上小智（Started）时播提示音 */
+        subscribe_agent_started_tone();
 
         /* 启动 WiFi 配网模块（无已存 AP -> SoftAP 配网） */
         ESP_LOGI(LOG_TAG, "Heap before WiFi init: internal8=%luB dram=%luB psram=%luB dma=%luB dma_largest=%luB dma_int_largest=%luB dma_int8=%luB",

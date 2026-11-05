@@ -563,6 +563,24 @@ esp_err_t audio_playback_open(audio_play_config_t *config, audio_play_handle_t *
  */
 esp_err_t audio_playback_close(audio_play_handle_t handle);
 
+/*
+ * LOCAL FIX (2026-11-05): 内置提示音（prompt tone）支持
+ *   esp_audio_simple_player 除了 file/http/embed_flash 这类 IO，还有一条 "raw" URI 通路：
+ *   URI 以 "raw" 开头时不走 IO，而是从 cfg.in.cb 回调里取编码后的字节流。
+ *   这里把该回调接出来，供应用把提示音（如 16k/16bit/mono 的 WAV）直接 EMBED_FILES
+ *   进 app 分区后播放——无需文件系统、无需网络。
+ *
+ *   用法：
+ *     audio_playback_set_prompt_data(_binary_xxx_wav_start, size);
+ *     audio_playback_play(handle, "raw://xxx.wav");   // 扩展名决定解码器类型
+ *
+ * @param[in]  data  指向内置音频数据（WAV/MP3 等容器字节流，只读，需常驻）
+ * @param[in]  size  数据长度（字节）
+ * @return
+ *       - ESP_OK  On success
+ */
+esp_err_t audio_playback_set_prompt_data(const uint8_t *data, uint32_t size);
+
 /**
  * @brief  Play audio from the specified URL.
  *

@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <inttypes.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -1452,6 +1453,43 @@ esp_err_t audio_manager_deinit(void)
     return ESP_OK;
 }
 
+/*
+ * LOCAL FIX (2026-11-05): 内置提示音数据源（raw URI 通路）
+ * esp_audio_simple_player 对以 "raw" 开头的 URI 不使用任何 IO，而是反复调用
+ * cfg.in.cb 拉取编码字节流；返回 0 表示数据结束（播放器收到 FINISHED）。
+ * 应用通过 audio_playback_set_prompt_data() 注册一段常驻内存（EMBED_FILES 进
+ * app 分区）的音频，即可用 "raw://xxx.wav" 播放提示音，不依赖文件系统/网络。
+ */
+static const uint8_t *s_prompt_data = NULL;
+static uint32_t       s_prompt_size = 0;
+static uint32_t       s_prompt_pos  = 0;
+
+static int audio_play_prompt_in_cb(uint8_t *data, int data_size, void *ctx)
+{
+    (void)ctx;
+    if ((s_prompt_data == NULL) || (s_prompt_pos >= s_prompt_size)) {
+        return 0;
+    }
+    int remain = (int)(s_prompt_size - s_prompt_pos);
+    int n = (data_size < remain) ? data_size : remain;
+    memcpy(data, s_prompt_data + s_prompt_pos, n);
+    s_prompt_pos += n;
+    return n;
+}
+
+esp_err_t audio_playback_set_prompt_data(const uint8_t *data, uint32_t size)
+{
+    if ((data == NULL) || (size == 0)) {
+        ESP_LOGE(TAG, "Invalid prompt data");
+        return ESP_ERR_INVALID_ARG;
+    }
+    s_prompt_data = data;
+    s_prompt_size = size;
+    s_prompt_pos = 0;
+    ESP_LOGI(TAG, "Prompt tone registered, size: %lu bytes", (unsigned long)size);
+    return ESP_OK;
+}
+
 static esp_err_t audio_play_internal(audio_play_handle_t player, const char *url, bool block_until_done)
 {
     if (!player || !url) {
@@ -1461,6 +1499,10 @@ static esp_err_t audio_play_internal(audio_play_handle_t player, const char *url
     if (player->state == AUDIO_RUN_STATE_CLOSED) {
         ESP_LOGE(TAG, "Cannot play %s - not opened", audio_play_type_to_str(player->config.type));
         return ESP_FAIL;
+    }
+    /* 内置提示音：每次播放把只读数据源的游标拨回开头 */
+    if (strncasecmp(url, "raw", 3) == 0) {
+        s_prompt_pos = 0;
     }
     if (player->state == AUDIO_RUN_STATE_PLAYING) {
         ESP_LOGW(TAG, "Audio %s is already playing, stopping current playback",
@@ -1506,7 +1548,7 @@ esp_err_t audio_playback_open(audio_play_config_t *config, audio_play_handle_t *
         return ESP_FAIL;
     }
     esp_asp_cfg_t cfg = {
-        .in.cb = NULL,
+        .in.cb = audio_play_prompt_in_cb,
         .in.user_ctx = NULL,
         .out.cb = audio_play_out_data_callback,
         .out.user_ctx = player,
