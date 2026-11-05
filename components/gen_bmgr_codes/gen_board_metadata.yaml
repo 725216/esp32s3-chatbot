@@ -1,0 +1,33 @@
+version: 1
+board: custom_s3
+chip: esp32s3
+
+devices:
+  audio_dac:
+    type: audio_codec
+    peripherals:
+    - i2s_out
+
+  audio_adc:
+    type: audio_codec
+    peripherals:
+    - i2s_in
+
+peripherals:
+  i2s_out:
+    type: i2s
+    role: master
+    format: std-out
+    io:
+      bclk: 8
+      ws: 7
+      dout: 9
+
+  i2s_in:
+    type: i2s
+    role: master
+    format: std-in
+    io:
+      bclk: 5
+      ws: 4
+      din: 6

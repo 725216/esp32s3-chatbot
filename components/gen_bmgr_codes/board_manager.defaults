@@ -1,0 +1,9 @@
+# --- Board-specific configuration (managed by esp_board_manager) ---
+# Board: custom_s3
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESP_BOARD_CUSTOM_S3=y
+CONFIG_ESP_BOARD_NAME="custom_s3"
+
+CONFIG_ESP_BOARD_PERIPH_I2S_SUPPORT=y
+CONFIG_ESP_BOARD_DEV_AUDIO_CODEC_SUPPORT=y
+# --- End of board-specific configuration ---
