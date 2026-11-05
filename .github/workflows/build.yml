@@ -263,13 +263,32 @@ jobs:
           set -e
           bundle="${{ env.BUNDLE_NAME }}"
           mkdir -p dist
-          cp esp32s3_chatbot.bin bootloader.bin partition-table.bin flash_args dist/
-          [ -f version.txt ] && cp version.txt dist/ || true
+          # LOCAL FIX (2026-11-05): upload-artifact v4 会保留各 path 相对公共祖先的目录结构，
+          # 下载后固件实际在 build/ 子目录下，因此用 find 定位，不写死路径
+          find_first() { find . -type f -name "$1" -print -quit; }
+          bin=$(find_first esp32s3_chatbot.bin)
+          bl=$(find_first bootloader.bin)
+          pt=$(find_first partition-table.bin)
+          fa=$(find_first flash_args)
+          if [ -z "$bin" ] || [ -z "$bl" ] || [ -z "$pt" ] || [ -z "$fa" ]; then
+            echo "::error::固件工件文件未找到"
+            ls -R .
+            exit 1
+          fi
+          cp "$bin" dist/esp32s3_chatbot.bin
+          cp "$bl" dist/bootloader.bin
+          cp "$pt" dist/partition-table.bin
+          cp "$fa" dist/flash_args
+          # 工作区根目录再放一份 app 镜像，供 Release 单独挂资产（只刷 0x10000 时用）
+          cp "$bin" ./esp32s3_chatbot.bin
+          vt=$(find_first version.txt); [ -n "$vt" ] && cp "$vt" dist/ || true
           # FLASH_README.md 来自 flash-instructions 工件；缺失时降级为占位说明
-          if [ -f FLASH_README.md ]; then
-            cp FLASH_README.md dist/
+          fr=$(find_first FLASH_README.md)
+          if [ -n "$fr" ]; then
+            cp "$fr" dist/FLASH_README.md
           else
             echo "# 刷写说明缺失（build 作业未产出 FLASH_README.md）" > FLASH_README.md
+            fr=./FLASH_README.md
           fi
           {
             echo "## ESP32-S3 Chatbot 固件"
@@ -277,14 +296,14 @@ jobs:
             echo "- Commit: \`${{ github.sha }}\`"
             echo "- Branch: ${{ needs.build.outputs.branch }}"
             echo
-            echo "下载 \`$bundle\` 解压后即为完整刷写材料（bootloader/partition/app/flash_args）。"
-            echo "注：flash_args 里的路径是 build 目录相对路径，手动刷写请按下表的分区偏移。"
-            echo "已配过网的用户只需刷 app 分区：0x10000 esp32s3_chatbot.bin（保留 WiFi 与 Agent Key）。"
+            echo "下载 \`$bundle\` 解压后即为完整刷写材料（bootloader/partition/app/flash_args）"
+            echo "注：flash_args 里的路径是 build 目录相对路径，手动刷写请按下方分区偏移"
+            echo "已配过网的用户只需刷 app 分区：0x10000 esp32s3_chatbot.bin（保留 WiFi 与 Agent Key）"
             echo
-            cat FLASH_README.md
+            cat "$fr"
           } > RELEASE_NOTES.md
           (cd dist && zip -qr "../$bundle" .)
-          ls -la
+          ls -la dist
           echo "bundle=$bundle"
           head -20 RELEASE_NOTES.md
 
