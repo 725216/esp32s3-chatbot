@@ -99,7 +99,7 @@ esptool.py --port COM4 --baud 921600 write_flash 0x10000 esp32s3_chatbot.bin
 # https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/get-started/
 
 # 克隆仓库
-git clone https://github.com/YOUR_REPO/esp32s3_chatbot.git
+git clone https://github.com/725216/esp32s3_chatbot.git
 cd esp32s3_chatbot
 
 # 编译
