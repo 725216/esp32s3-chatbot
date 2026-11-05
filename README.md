@@ -300,4 +300,4 @@ MIT License
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request！
+本固件Ai生成，有问题找Ai
