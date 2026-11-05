@@ -90,7 +90,10 @@ jobs:
           echo "IDF_PATH=$IDF_PATH"
 
       - name: Build firmware
-        continue-on-error: true
+        # LOCAL FIX (2026-11-05): 必须用 bash——容器默认 sh 是 dash，
+        # `set -o pipefail` 在 dash 下报 Illegal option 直接 exit 2，idf.py 根本没跑；
+        # 同时去掉 continue-on-error，编译真失败时 run 显红而不是假绿
+        shell: bash
         run: |
           # 消除 git dubious ownership 警告（使 PROJECT_VER 正常）
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
